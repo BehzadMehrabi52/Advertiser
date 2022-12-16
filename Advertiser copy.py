@@ -6,10 +6,9 @@ import rsa
 import mysql.connector 
 from mysql.connector import Error
 import os
-from threading import Timer  
-from datetime import datetime,timedelta
+from threading import Event,Thread 
 
-timer = None
+adv_bot = None
 
 def DbConnect():
     try:
@@ -20,94 +19,60 @@ def DbConnect():
                                             )
         if not connection.is_connected():
             print("Could not connected to MySQL")
-            if timer!=None:
-                timer.cancel()
+            stopFlag.set()
             os._exit(1)
     except Error as e:
         print("Error while connecting to MySQL", e)
-        if timer!=None:
-            timer.cancel()
+        stopFlag.set()
         os._exit(1)
     return connection
 
 def botStart(update : Update, context : CallbackContext):
-    if update.message.chat.type == 'private':
-        startMessage = """
-        Commands:
-        /start : منوي اصلي
-        /adv_list :  لیست تبلغات
-        /adv_last : آخرین پیام
-        /adv_show[:adv_id] : نمایش پیام
-        /adv_ins[:adv_id:start_time:adv_count] : ایجاد تبلیغ در تمامی گروه ها
-        /adv_ins_group[:adv_id:group_id:start_time:adv_count] : ایجاد تبلیغ در گروه خاص
-        /adv_del[:adv_id] : حذف تبلیغ
-        /adv_start : راه اندازی تبلیغ دهنده
-        /adv_stop : توقف تبلیغ دهنده
-        /about : درباره ...
-        """
-        chat_id = update.message.chat_id
-        context.bot.send_message(chat_id=chat_id, text=startMessage)
-
-def botAdvStr(r):
-    adv = "Id:"+str(r[0])+";Start:"+str(r[1])+";Count:"+str(r[2])+";Remain:"+str(r[3])+";Next:"+str(r[4])+";Period:"+str(r[5])+";Groups:"+str(r[6])+";UserName:"+r[7]+";Active:"+str(r[8])
-    return adv
+    global adv_bot
+    adv_bot = context.bot
+    print('at start')
+    print(adv_bot)
+    #if update.message.chat.type == 'private':
+    #    startMessage = """
+    #    Commands:
+    #    /start : منوي اصلي
+    #    /adv_list :  لیست تبلغات
+    #    /adv_last : آخرین پیام
+    #    /adv_show[:adv_id] : نمایش پیام
+    #    /adv_ins[:adv_id:start_time:adv_count] : ایجاد تبلیغ در تمامی گروه ها
+    #    /adv_ins_group[:adv_id:group_id:start_time:adv_count] : ایجاد تبلیغ در گروه خاص
+    #    /adv_del[:adv_id] : حذف تبلیغ
+    #    /adv_stop : توقف تبلیغ دهنده
+    #    /about : درباره ...
+    #    """
+    #    chat_id = update.message.chat_id
+    #    context.bot.send_message(chat_id=chat_id, text=startMessage)
 
 def botAdvListStr(recs):
     advs = ""
     for r in recs:
-        advs = advs+"\n"+botAdvStr(r)
+        advs = advs+"\nAdvId:"+str(r[1])+";StartTime:"+str(r[2])+";Count:"+str(r[3])+";Remain:"+str(r[4])+";Active:"+str(r[5])+";UserName:"+r[7]+";GroupName="+str(r[11])
     return advs
+
 
 def botAdvList(update : Update, context : CallbackContext):
     if update.message.chat.type == 'private':
         connection = DbConnect()
         cursor = connection.cursor()
-        cursor.execute("""
-                        SELECT A.Advertise_Id,A.Start_Time,A.Advertise_Count,
-                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Advertise_Remain,
-                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Advertise_NextRun,
-                            A.Advertise_Period,
-                            IFNULL(GROUP_CONCAT(G.Group_Name SEPARATOR ','),"ALL GROUPS") Groups, 
-                            A.User_Name,A.Active
-                        FROM Advertise A 
-                            LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id 
-                            LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
-                        WHERE A.Active=1
-                        GROUP By Advertise_Id;
-                       """)
+        cursor.execute("SELECT * FROM Advertise A LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id;")
         recs = cursor.fetchall()
         cursor.close()
         connection.close()
-        advList = "Lists ("+str(len(recs))+")" + botAdvListStr(recs)
+        groupList = "Lists ("+str(len(recs))+")" + botAdvListStr(recs)
         chat_id = update.message.chat_id
-        context.bot.send_message(chat_id=chat_id, text=advList)
+        context.bot.send_message(chat_id=chat_id, text=groupList)
 
 def botAdvLast(update : Update, context : CallbackContext):
     if update.message.chat.type == 'private':
-        connection = DbConnect()
-        cursor = connection.cursor()
-        cursor.execute("""
-                        SELECT A.Advertise_Id,A.Start_Time,A.Advertise_Count,
-                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Advertise_Remain,
-                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Advertise_NextRun,
-                            A.Advertise_Period,
-                            IFNULL(GROUP_CONCAT(G.Group_Name SEPARATOR ','),"ALL GROUPS") Groups, 
-                            A.User_Name,A.Active
-                        FROM Advertise A 
-                            LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id 
-                            LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
-                        WHERE A.Active=1
-                        GROUP By Advertise_Id;
-                       """)
-        recs = cursor.fetchall()
-        cursor.close()
-        connection.close()
-        if len(recs)>0:
-            adv = botAdvStr(recs[len(recs)-1])
-            chat_id = update.message.chat_id
-            context.bot.send_message(chat_id=chat_id, text=adv)
+        groupList = "Groups:\n" #+botGroupList(context)
+        chat_id = update.message.chat_id
+        context.bot.send_message(chat_id=chat_id, text=groupList)
 
-"""
 def botAdvShow(update : Update, context : CallbackContext):
     if update.message.chat.type == 'private':
         groupList = "Groups:\n" #+botGroupList(context)
@@ -131,7 +96,6 @@ def botAdvDelete(update : Update, context : CallbackContext):
         groupList = "Groups:\n" #+botGroupList(context)
         chat_id = update.message.chat_id
         context.bot.send_message(chat_id=chat_id, text=groupList)
-"""
 
 def botAbout(update : Update, context : CallbackContext):
     if update.message.chat.type == 'private':
@@ -160,14 +124,13 @@ def botAdvHandler(update : Update, context : CallbackContext):
         if update.message.chat.type=='group':
             if update.message.from_user!=None:
                 if update.message.from_user.username=='Modern_Istanbul':
-                    print(update.message)
                     connection = DbConnect()
                     cursor = connection.cursor()
                     cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=1;")
                     adv_group = cursor.fetchone()
                     if adv_group!=None:
                         if update.message.chat.id == adv_group[1]: 
-                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Active_Period,Active,User_Id,User_Name) VALUES (%s,CURRENT_TIMESTAMP,0,24,0,0,'');",[update.message.message_id])
+                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Remain,Active) VALUES (%s,CURRENT_TIMESTAMP,0,0,0);",[update.message.message_id])
                             connection.commit()
                     cursor.close()
                     connection.close()
@@ -214,74 +177,38 @@ def memberOnLeft(update : Update, context : CallbackContext):
                     cursor.close()
                     connection.close()
 
-def botAdvRun(connection,cursor,cur_time,Advertise_Id,Advertise_Remain,Advertise_Period,Group_Id,Group_Name):
-    adv_remain = Advertise_Remain - 1
-    print(adv_remain)
-    if adv_remain<0:
-        adv_remain = 0
-    adv_next_run = cur_time + timedelta(seconds=1.5*Advertise_Period) #timedelta(hours=Advertise_Period) 
-    print(adv_next_run)
-    cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[Advertise_Id,adv_remain,adv_next_run,Group_Id,Group_Name])
-    connection.commit()
+def botAdvStop():
+    stopFlag.set()
 
-def botAdvFunction(context : CallbackContext):
-    connection = DbConnect()
-    cursor = connection.cursor()
-    cursor.execute("SELECT Group_Id FROM Bot_Groups WHERE Advertise_Group=1;")
-    adv_group = cursor.fetchone()
-    if adv_group!=None:
-        cursor.execute("""
-                        SELECT A.Id,A.Advertise_Id,B.Group_Id,B.Group_Name,A.Advertise_Period,
-                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Advertise_Remain,
-                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Advertise_NextRun
-                        FROM Advertise A 
-                            LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id
-                            LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
-                            LEFT JOIN bot_groups B ON B.Id=G.Group_Id
-                        WHERE A.Active=1
-                        GROUP By Advertise_Id
-                       """)
-        advs = cursor.fetchall()
-        for adv in advs:
-            print(adv)
-            if adv[5]>0:
-                dt = datetime.now()
-                print(dt)
-                print(adv[6])
-                if dt>adv[6]:
-                    if adv[2]==None:
-                        cursor.execute("SELECT Group_Id,Group_Name FROM Bot_Groups WHERE Advertise_Group=0;")
-                        adv_groups = cursor.fetchall()
-                        for grp in adv_groups:
-                            context.bot.forward_message(grp[0],adv_group[0],adv[1])
-                            botAdvRun(connection,cursor,dt,adv[0],adv[5],adv[4],grp[0],grp[1])
-                    else:
-                        context.bot.forward_message(adv[2],adv_group[0],adv[1])
-                        botAdvRun(connection,cursor,dt,adv[0],adv[5],adv[4],adv[2],adv[3])
-        cursor.close()
-        connection.close()
-
-class botAdvTimer(Timer):
-    def run(self):
-        while not self.finished.wait(self.interval):  
-            self.function(*self.args,**self.kwargs)
-           
-def botAdvStart(update : Update, context : CallbackContext):
-    global timer
-    timer = botAdvTimer(0.5,botAdvFunction,[context])
-    timer.start()
-
-def botAdvStop(update : Update, context : CallbackContext):
-    if timer!=None:
-        timer.cancel()
+def botAdvTimer():
+    print('at timer')
+    print(adv_bot)
+    if adv_bot!=None:
+        print("job executing...")
+        connection = DbConnect()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=1;")
+        adv_group = cursor.fetchone()
+        if adv_group!=None:
+            cursor.execute("SELECT * FROM Advertise A LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id;")
+            advs = cursor.fetchall()
+            for adv in advs:
+                cursor = connection.cursor()
+                cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=0;")
+                adv_groups = cursor.fetchall()
+                for grp in adv_groups:
+                    if adv[10]==None or adv[10]==grp[1]:
+                        adv_bot.forward_message(grp[1],adv_group[1],adv[1])
+            cursor.close()
+            connection.close()
+        print("job executed.")
 
 def main():
     cpass = configparser.RawConfigParser()
     cpass.read('config.data')
     if not cpass.has_section('Bot'):
         print("No BOT Information Found")
-        if timer!=None:
-            timer.cancel()
+        stopFlag.set()
         os._exit(1)
 
     """
@@ -302,13 +229,12 @@ def main():
     #print(token)
     updater = Updater(token,use_context=True)
     dp = updater.dispatcher
-    #dp.add_handler(CommandHandler('start',botStart))
+    dp.add_handler(CommandHandler('start',botStart))
     dp.add_handler(CommandHandler('adv_list',botAdvList))
     dp.add_handler(CommandHandler('adv_last',botAdvLast))
-    #dp.add_handler(CommandHandler('adv_ins',botAdvInsert))
-    #dp.add_handler(CommandHandler('adv_ins_group',botAdvInsertGroup))
-    #dp.add_handler(CommandHandler('adv_del',botAdvDelete))
-    dp.add_handler(CommandHandler('adv_start',botAdvStart))
+    dp.add_handler(CommandHandler('adv_ins',botAdvInsert))
+    dp.add_handler(CommandHandler('adv_ins_group',botAdvInsertGroup))
+    dp.add_handler(CommandHandler('adv_del',botAdvDelete))
     dp.add_handler(CommandHandler('adv_stop',botAdvStop))
     #dp.add_handler(CommandHandler('bop',bop))
     dp.add_handler(MessageHandler(Filters.status_update.new_chat_members,memberOnJoin))
@@ -316,6 +242,19 @@ def main():
     dp.add_handler(MessageHandler(Filters.all, botAdvHandler))
     updater.start_polling()
     updater.idle()
+
+class BotAdvThread(Thread):
+    def __init__(self, event):
+        Thread.__init__(self)
+        self.stopped = event
+
+    def run(self):
+        while not self.stopped.wait(2):
+            botAdvTimer()
+
+stopFlag = Event()
+thread = BotAdvThread(stopFlag)
+thread.start()
 
 if __name__ == '__main__':
   main()
