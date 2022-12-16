@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  advertiser:
+    image: advertiser
+    build:
+      context: .
+      dockerfile: ./Dockerfile
