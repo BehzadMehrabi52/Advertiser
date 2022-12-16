@@ -160,7 +160,6 @@ def botAdvHandler(update : Update, context : CallbackContext):
         if update.message.chat.type=='group':
             if update.message.from_user!=None:
                 if update.message.from_user.username=='Modern_Istanbul':
-                    print(update.message)
                     connection = DbConnect()
                     cursor = connection.cursor()
                     cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=1;")
@@ -216,11 +215,9 @@ def memberOnLeft(update : Update, context : CallbackContext):
 
 def botAdvRun(connection,cursor,cur_time,Advertise_Id,Advertise_Remain,Advertise_Period,Group_Id,Group_Name):
     adv_remain = Advertise_Remain - 1
-    print(adv_remain)
     if adv_remain<0:
         adv_remain = 0
     adv_next_run = cur_time + timedelta(seconds=1.5*Advertise_Period) #timedelta(hours=Advertise_Period) 
-    print(adv_next_run)
     cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[Advertise_Id,adv_remain,adv_next_run,Group_Id,Group_Name])
     connection.commit()
 
@@ -243,11 +240,8 @@ def botAdvFunction(context : CallbackContext):
                        """)
         advs = cursor.fetchall()
         for adv in advs:
-            print(adv)
             if adv[5]>0:
                 dt = datetime.now()
-                print(dt)
-                print(adv[6])
                 if dt>adv[6]:
                     if adv[2]==None:
                         cursor.execute("SELECT Group_Id,Group_Name FROM Bot_Groups WHERE Advertise_Group=0;")
