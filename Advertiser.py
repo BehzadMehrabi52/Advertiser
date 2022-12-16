@@ -166,7 +166,7 @@ def botAdvHandler(update : Update, context : CallbackContext):
                     adv_group = cursor.fetchone()
                     if adv_group!=None:
                         if update.message.chat.id == adv_group[1]: 
-                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Active_Period,Active,User_Id,User_Name) VALUES (%s,CURRENT_TIMESTAMP,0,24,0,0,'');",[update.message.message_id])
+                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,Active,User_Id,User_Name) VALUES (%s,CURRENT_TIMESTAMP,0,24,0,0,'');",[update.message.message_id])
                             connection.commit()
                     cursor.close()
                     connection.close()
@@ -187,7 +187,7 @@ def memberOnJoin(update : Update, context : CallbackContext):
     #context.bot.send_message(chat_id=chat_id, text='WelCome')
     #context.bot.delete_message(chat_id=update.message.chat_id,message_id=update.message.message_id)
     if update.message.chat!=None:
-        if update.message.chat.type=='group':
+        if update.message.chat.type=='group' or update.message.chat.type=='supergroup':
             if update.message.new_chat_members!=None:
                 if update.message.new_chat_members[0]!=None:
                     if update.message.new_chat_members[0].username=='BM_Advertiser_Bot':
@@ -213,11 +213,12 @@ def memberOnLeft(update : Update, context : CallbackContext):
                     cursor.close()
                     connection.close()
 
-def botAdvRun(connection,cursor,cur_time,Advertise_Id,Advertise_Remain,Advertise_Period,Group_Id,Group_Name):
+def botAdvRun(context : CallbackContext,connection,cursor,cur_time,Advertise_Id,Advertise_Remain,Advertise_Period,Group_Id,Group_Name,Adv_Group):
     adv_remain = Advertise_Remain - 1
-    if adv_remain<0:
+    if adv_remain<=0:
         adv_remain = 0
-    adv_next_run = cur_time + timedelta(seconds=1.5*Advertise_Period) #timedelta(hours=Advertise_Period) 
+        context.bot.delete_message(chat_id=Adv_Group,message_id=Advertise_Id)
+    adv_next_run = cur_time + timedelta(hours=Advertise_Period)  #timedelta(seconds=1.5*Advertise_Period)
     cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[Advertise_Id,adv_remain,adv_next_run,Group_Id,Group_Name])
     connection.commit()
 
@@ -248,10 +249,10 @@ def botAdvFunction(context : CallbackContext):
                         adv_groups = cursor.fetchall()
                         for grp in adv_groups:
                             context.bot.forward_message(grp[0],adv_group[0],adv[1])
-                            botAdvRun(connection,cursor,dt,adv[0],adv[5],adv[4],grp[0],grp[1])
+                            botAdvRun(context,connection,cursor,dt,adv[0],adv[5],adv[4],grp[0],grp[1],adv_group[0])
                     else:
                         context.bot.forward_message(adv[2],adv_group[0],adv[1])
-                        botAdvRun(connection,cursor,dt,adv[0],adv[5],adv[4],adv[2],adv[3])
+                        botAdvRun(context,connection,cursor,dt,adv[0],adv[5],adv[4],adv[2],adv[3],adv_group[0])
         cursor.close()
         connection.close()
 
@@ -313,4 +314,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
