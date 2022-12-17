@@ -217,10 +217,13 @@ def botAdvRun(context : CallbackContext,connection,cursor,cur_time,Advertise_Id,
     adv_remain = Advertise_Remain - 1
     if adv_remain<=0:
         adv_remain = 0
-        context.bot.delete_message(chat_id=Adv_Group,message_id=Advertise_Id)
     adv_next_run = cur_time + timedelta(hours=Advertise_Period)  #timedelta(seconds=1.5*Advertise_Period)
     cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[Advertise_Id,adv_remain,adv_next_run,Group_Id,Group_Name])
     connection.commit()
+    if adv_remain==0:
+        context.bot.delete_message(chat_id=Adv_Group,message_id=Advertise_Id)
+        cursor.execute("UPDATE Advertise SET Active=0 WHERE Advertise_Id=%s;",[Advertise_Id])
+        connection.commit()
 
 def botAdvFunction(context : CallbackContext):
     connection = DbConnect()
