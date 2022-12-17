@@ -9,8 +9,6 @@ import os
 from threading import Timer  
 from datetime import datetime,timedelta
 
-timer = None
-
 def DbConnect():
     try:
         connection = mysql.connector.connect(host='localhost',
@@ -72,7 +70,7 @@ def botAdvList(update : Update, context : CallbackContext):
                         FROM Advertise A 
                             LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id 
                             LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
-                        WHERE A.Active=1 AND (Advertise_Remain IS NULL OR Advertise_Remain>0)
+                        WHERE A.Active=1 AND (A.Advertise_Count=0 OR R.Advertise_Remain IS NULL OR R.Advertise_Remain>0)
                         GROUP By Advertise_Id;
                        """)
         recs = cursor.fetchall()
@@ -96,7 +94,7 @@ def botAdvLast(update : Update, context : CallbackContext):
                         FROM Advertise A 
                             LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id 
                             LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
-                        WHERE A.Active=1 AND (Advertise_Remain IS NULL OR Advertise_Remain>0)
+                        WHERE A.Active=1 AND (A.Advertise_Count=0 OR R.Advertise_Remain IS NULL OR R.Advertise_Remain>0)
                         GROUP By Advertise_Id;
                        """)
         recs = cursor.fetchall()
@@ -153,20 +151,36 @@ def bop(update : Update, context : CallbackContext):
 """
 def botAdvHandler(update : Update, context : CallbackContext):
     if update.message.chat.type == 'private':
-        groupList = "Unknown Command!"
+        tx = "Unknown Command!"
         chat_id = update.message.chat_id
-        context.bot.send_message(chat_id=chat_id, text=groupList)
-    elif update.message.entities!=None and update.message.chat!=None:
-        if update.message.chat.type=='group':
+        context.bot.send_message(chat_id=chat_id, text=tx)
+    elif update.message.chat!=None and len(update.message.new_chat_photo)==0:
+        if update.message.chat.type=='group' or update.message.chat.type=='supergroup':
             if update.message.from_user!=None:
-                if update.message.from_user.username=='Modern_Istanbul':
+                if update.message.from_user.id==2057086971:  #'Modern_Istanbul' user id
+                    user_id   = update.message.from_user.id
+                    user_name = update.message.from_user.username+"("+update.message.from_user.first_name+" "+update.message.from_user.last_name+")"
+                    if update.message.forward_sender_name is not None:
+                        user_id = 0
+                        user_name = "("+update.message.forward_sender_name+")"+"<No User Id>"
+                    if update.message.forward_from is not None:
+                        user_id   = update.message.forward_from.id
+                        user_name = ""
+                        if update.message.forward_from.username is not None:
+                            user_name = user_name + update.message.forward_from.username
+                        user_name = user_name+"("
+                        if update.message.forward_from.first_name is not None:
+                            user_name = user_name + update.message.forward_from.first_name
+                        if update.message.forward_from.last_name is not None:
+                            user_name = user_name + update.message.forward_from.last_name
+                        user_name = user_name+")"
                     connection = DbConnect()
                     cursor = connection.cursor()
-                    cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=1;")
+                    cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=1 AND Active=1;")
                     adv_group = cursor.fetchone()
                     if adv_group!=None:
                         if update.message.chat.id == adv_group[1]: 
-                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,Active,User_Id,User_Name) VALUES (%s,CURRENT_TIMESTAMP,1,24,0,0,'');",[update.message.message_id])
+                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,Active,User_Id,User_Name) VALUES (%s,CURRENT_TIMESTAMP,1,24,0,%s,%s);",[update.message.message_id,user_id,user_name])
                             connection.commit()
                     cursor.close()
                     connection.close()
@@ -174,7 +188,7 @@ def botAdvHandler(update : Update, context : CallbackContext):
                     if adv_group!=None:
                         connection = DbConnect()
                         cursor = connection.cursor()
-                        cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=0;")
+                        cursor.execute("SELECT * FROM Bot_Groups WHERE Advertise_Group=0 AND Active=1;")
                         adv_groups = cursor.fetchall()
                         for g in adv_groups:
                             context.bot.forward_message(g[1],adv_group[1],update.message.message_id)
@@ -193,7 +207,7 @@ def memberOnJoin(update : Update, context : CallbackContext):
                     if update.message.new_chat_members[0].username=='BM_Advertiser_Bot':
                         connection = DbConnect()
                         cursor = connection.cursor()
-                        cursor.execute("INSERT INTO Bot_Groups (Group_Id,Group_Name,Advertise_Group) VALUES (%s,%s,0);",[update.message.chat.id,update.message.chat.title])
+                        cursor.execute("INSERT INTO Bot_Groups (Group_Id,Group_Name,Advertise_Group,Active) VALUES (%s,%s,0,1);",[update.message.chat.id,update.message.chat.title])
                         connection.commit()
                         cursor.close()
                         connection.close()
@@ -203,7 +217,7 @@ def memberOnLeft(update : Update, context : CallbackContext):
     #context.bot.send_message(chat_id=chat_id, text='WelCome')
     #context.bot.delete_message(chat_id=update.message.chat_id,message_id=update.message.message_id)
     if update.message.chat!=None:
-        if update.message.chat.type=='group':
+        if update.message.chat.type=='group' or update.message.chat.type=='supergroup':
             if update.message.left_chat_member!=None:
                 if update.message.left_chat_member.username=='BM_Advertiser_Bot':
                     connection = DbConnect()
@@ -216,17 +230,18 @@ def memberOnLeft(update : Update, context : CallbackContext):
 def botAdvRun(context : CallbackContext,connection,cursor,cur_time,adv_id,advertise_id,advertise_count,advertise_remain,advertise_period,group_id,group_name,advertise_group_id):
     context.bot.forward_message(group_id,advertise_group_id,advertise_id)
     adv_remain = advertise_remain - 1
-    adv_next_run = cur_time + timedelta(hours=advertise_period)  #timedelta(seconds=1.5*advertise_period)
+    adv_next_run = cur_time + timedelta(seconds=2*advertise_period) #timedelta(hours=advertise_period)  #timedelta(seconds=1.5*advertise_period)
     cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[adv_id,adv_remain,adv_next_run,group_id,group_name])
     if adv_remain<=0 and advertise_count!=0:
         context.bot.delete_message(chat_id=advertise_group_id,message_id=advertise_id)
         cursor.execute("UPDATE Advertise SET Active=0 WHERE Id=%s;",[adv_id])
     connection.commit()
+    return adv_remain
 
 def botAdvRuns(context : CallbackContext):
     connection = DbConnect()
     cursor = connection.cursor()
-    cursor.execute("SELECT Group_Id FROM Bot_Groups WHERE Advertise_Group=1;")
+    cursor.execute("SELECT Group_Id FROM Bot_Groups WHERE Advertise_Group=1 AND Active=1;")
     adv_group = cursor.fetchone()
     if adv_group!=None:
         cursor.execute("""
@@ -237,21 +252,23 @@ def botAdvRuns(context : CallbackContext):
                             LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id
                             LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
                             LEFT JOIN bot_groups B ON B.Id=G.Group_Id
-                        WHERE A.Active=1 AND (Advertise_Remain IS NULL OR Advertise_Remain>0)
+                        WHERE A.Active=1 AND (A.Advertise_Count=0 OR R.Advertise_Remain IS NULL OR R.Advertise_Remain>0)
+                            AND B.Active=1
                         GROUP By Advertise_Id
                        """)
         advs = cursor.fetchall()
         for adv in advs:
-            if adv[6]>0 or adv[4]==0:
+            adv_remain = adv[6]
+            if adv_remain>0 or adv[4]==0:
                 dt = datetime.now()
                 if dt>adv[7]:
                     if adv[2]==None:
-                        cursor.execute("SELECT Group_Id,Group_Name FROM Bot_Groups WHERE Advertise_Group=0;")
+                        cursor.execute("SELECT Group_Id,Group_Name FROM Bot_Groups WHERE Advertise_Group=0 AND Active=1;")
                         adv_groups = cursor.fetchall()
                         for grp in adv_groups:
-                            botAdvRun(context,connection,cursor,dt,adv[0],adv[1],adv[4],adv[6],adv[5],grp[0],grp[1],adv_group[0])
+                            adv_remain = botAdvRun(context,connection,cursor,dt,adv[0],adv[1],adv[4],adv_remain,adv[5],grp[0],grp[1],adv_group[0])
                     else:
-                        botAdvRun(context,connection,cursor,dt,adv[0],adv[1],adv[4],adv[6],adv[5],adv[2],adv[3],adv_group[0])
+                        adv_remain = botAdvRun(context,connection,cursor,dt,adv[0],adv[1],adv[4],adv_remain,adv[5],adv[2],adv[3],adv_group[0])
         cursor.close()
         connection.close()
 
@@ -262,14 +279,29 @@ class botAdvTimer(Timer):
            
 def botAdvStart(update : Update, context : CallbackContext):
     global timer
-    timer = botAdvTimer(0.5,botAdvRuns,[context])
-    timer.start()
+    if timer is None:
+        timer = botAdvTimer(0.5,botAdvRuns,[context])
+        timer.start()
+        tx = "Adviser is ON now"
+    else:
+        tx = "Adviser is ON not OFF"
+    chat_id = update.message.chat_id
+    context.bot.send_message(chat_id=chat_id, text=tx)
 
 def botAdvStop(update : Update, context : CallbackContext):
-    if timer!=None:
+    global timer
+    if timer is not None:
         timer.cancel()
+        timer = None
+        tx = "Adviser is OFF now"
+    else:
+        tx = "Adviser is not ON"
+    chat_id = update.message.chat_id
+    context.bot.send_message(chat_id=chat_id, text=tx)
 
 def main():
+    global timer
+    timer = None
     cpass = configparser.RawConfigParser()
     cpass.read('config.data')
     if not cpass.has_section('Bot'):
