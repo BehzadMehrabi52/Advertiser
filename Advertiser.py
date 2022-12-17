@@ -64,15 +64,15 @@ def botAdvList(update : Update, context : CallbackContext):
         cursor = connection.cursor()
         cursor.execute("""
                         SELECT A.Advertise_Id,A.Start_Time,A.Advertise_Count,
-                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Advertise_Remain,
-                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Advertise_NextRun,
+                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Adv_Remain,
+                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Adv_NextRun,
                             A.Advertise_Period,
                             IFNULL(GROUP_CONCAT(G.Group_Name SEPARATOR ','),"ALL GROUPS") Groups, 
                             A.User_Name,A.Active
                         FROM Advertise A 
                             LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id 
                             LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
-                        WHERE A.Active=1
+                        WHERE A.Active=1 AND (Advertise_Remain IS NULL OR Advertise_Remain>0)
                         GROUP By Advertise_Id;
                        """)
         recs = cursor.fetchall()
@@ -88,15 +88,15 @@ def botAdvLast(update : Update, context : CallbackContext):
         cursor = connection.cursor()
         cursor.execute("""
                         SELECT A.Advertise_Id,A.Start_Time,A.Advertise_Count,
-                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Advertise_Remain,
-                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Advertise_NextRun,
+                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Adv_Remain,
+                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Adv_NextRun,
                             A.Advertise_Period,
                             IFNULL(GROUP_CONCAT(G.Group_Name SEPARATOR ','),"ALL GROUPS") Groups, 
                             A.User_Name,A.Active
                         FROM Advertise A 
                             LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id 
                             LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
-                        WHERE A.Active=1
+                        WHERE A.Active=1 AND (Advertise_Remain IS NULL OR Advertise_Remain>0)
                         GROUP By Advertise_Id;
                        """)
         recs = cursor.fetchall()
@@ -233,13 +233,13 @@ def botAdvFunction(context : CallbackContext):
     if adv_group!=None:
         cursor.execute("""
                         SELECT A.Id,A.Advertise_Id,B.Group_Id,B.Group_Name,A.Advertise_Period,
-                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Advertise_Remain,
-                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Advertise_NextRun
+                            IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Adv_Remain,
+                            IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Adv_NextRun
                         FROM Advertise A 
                             LEFT JOIN Advertise_Group G ON G.Advertise_Id=A.Id
                             LEFT JOIN Advertise_Runs R ON R.Advertise_Id=A.Id 
                             LEFT JOIN bot_groups B ON B.Id=G.Group_Id
-                        WHERE A.Active=1
+                        WHERE A.Active=1 AND (Advertise_Remain IS NULL OR Advertise_Remain>0)
                         GROUP By Advertise_Id
                        """)
         advs = cursor.fetchall()
