@@ -166,7 +166,7 @@ def botAdvHandler(update : Update, context : CallbackContext):
                     adv_group = cursor.fetchone()
                     if adv_group!=None:
                         if update.message.chat.id == adv_group[1]: 
-                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,Active,User_Id,User_Name) VALUES (%s,CURRENT_TIMESTAMP,0,24,0,0,'');",[update.message.message_id])
+                            cursor.execute("INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,Active,User_Id,User_Name) VALUES (%s,CURRENT_TIMESTAMP,1,24,0,0,'');",[update.message.message_id])
                             connection.commit()
                     cursor.close()
                     connection.close()
@@ -213,26 +213,24 @@ def memberOnLeft(update : Update, context : CallbackContext):
                     cursor.close()
                     connection.close()
 
-def botAdvRun(context : CallbackContext,connection,cursor,cur_time,Advertise_Id,Advertise_Remain,Advertise_Period,Group_Id,Group_Name,Adv_Group):
-    adv_remain = Advertise_Remain - 1
-    if adv_remain<=0:
-        adv_remain = 0
-    adv_next_run = cur_time + timedelta(hours=Advertise_Period)  #timedelta(seconds=1.5*Advertise_Period)
-    cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[Advertise_Id,adv_remain,adv_next_run,Group_Id,Group_Name])
+def botAdvRun(context : CallbackContext,connection,cursor,cur_time,adv_id,advertise_id,advertise_count,advertise_remain,advertise_period,group_id,group_name,advertise_group_id):
+    context.bot.forward_message(group_id,advertise_group_id,advertise_id)
+    adv_remain = advertise_remain - 1
+    adv_next_run = cur_time + timedelta(hours=advertise_period)  #timedelta(seconds=1.5*advertise_period)
+    cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[adv_id,adv_remain,adv_next_run,group_id,group_name])
+    if adv_remain<=0 and advertise_count!=0:
+        context.bot.delete_message(chat_id=advertise_group_id,message_id=advertise_id)
+        cursor.execute("UPDATE Advertise SET Active=0 WHERE Id=%s;",[adv_id])
     connection.commit()
-    if adv_remain==0:
-        context.bot.delete_message(chat_id=Adv_Group,message_id=Advertise_Id)
-        cursor.execute("UPDATE Advertise SET Active=0 WHERE Advertise_Id=%s;",[Advertise_Id])
-        connection.commit()
 
-def botAdvFunction(context : CallbackContext):
+def botAdvRuns(context : CallbackContext):
     connection = DbConnect()
     cursor = connection.cursor()
     cursor.execute("SELECT Group_Id FROM Bot_Groups WHERE Advertise_Group=1;")
     adv_group = cursor.fetchone()
     if adv_group!=None:
         cursor.execute("""
-                        SELECT A.Id,A.Advertise_Id,B.Group_Id,B.Group_Name,A.Advertise_Period,
+                        SELECT A.Id,A.Advertise_Id,B.Group_Id,B.Group_Name,A.Advertise_Count,A.Advertise_Period,
                             IFNULL(min(R.Advertise_Remain),A.Advertise_Count) As Adv_Remain,
                             IFNULL(max(R.Advertise_NextRun),A.Start_Time) As Adv_NextRun
                         FROM Advertise A 
@@ -244,18 +242,16 @@ def botAdvFunction(context : CallbackContext):
                        """)
         advs = cursor.fetchall()
         for adv in advs:
-            if adv[5]>0:
+            if adv[6]>0 or adv[4]==0:
                 dt = datetime.now()
-                if dt>adv[6]:
+                if dt>adv[7]:
                     if adv[2]==None:
                         cursor.execute("SELECT Group_Id,Group_Name FROM Bot_Groups WHERE Advertise_Group=0;")
                         adv_groups = cursor.fetchall()
                         for grp in adv_groups:
-                            context.bot.forward_message(grp[0],adv_group[0],adv[1])
-                            botAdvRun(context,connection,cursor,dt,adv[0],adv[5],adv[4],grp[0],grp[1],adv_group[0])
+                            botAdvRun(context,connection,cursor,dt,adv[0],adv[1],adv[4],adv[6],adv[5],grp[0],grp[1],adv_group[0])
                     else:
-                        context.bot.forward_message(adv[2],adv_group[0],adv[1])
-                        botAdvRun(context,connection,cursor,dt,adv[0],adv[5],adv[4],adv[2],adv[3],adv_group[0])
+                        botAdvRun(context,connection,cursor,dt,adv[0],adv[1],adv[4],adv[6],adv[5],adv[2],adv[3],adv_group[0])
         cursor.close()
         connection.close()
 
@@ -266,7 +262,7 @@ class botAdvTimer(Timer):
            
 def botAdvStart(update : Update, context : CallbackContext):
     global timer
-    timer = botAdvTimer(0.5,botAdvFunction,[context])
+    timer = botAdvTimer(0.5,botAdvRuns,[context])
     timer.start()
 
 def botAdvStop(update : Update, context : CallbackContext):
