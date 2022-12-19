@@ -13,8 +13,7 @@ def DbConnect():
     try:
         connection = mysql.connector.connect(host='localhost',
                                              db='advertiser',
-                                             user='Advertiser',
-                                             password='nXsCBUf5)zlD)bnG'
+                                             user='Advertiser'
                                             )
         if not connection.is_connected():
             print("Could not connected to MySQL")
@@ -52,6 +51,7 @@ def botStart(update : Update, context : CallbackContext):
             /adv_deacrivate:[adv_id] : غیر فعال کردن تبلیغ
             /adv_start : راه اندازی تبلیغ دهنده
             /adv_stop : توقف تبلیغ دهنده
+            /bot_group_list : لیست گروه های ربات
             /about : درباره ...
             """
         else:
@@ -225,6 +225,21 @@ def botAdvDeactivate(update : Update, context : CallbackContext):
         cursor.close()
         connection.close()
 
+def botGroupList(update : Update, context : CallbackContext):
+    if update.message.chat is not None and update.message.chat.type == 'private':
+        if not isBotAdmin(cursor,update.message.from_user.id):
+            connection = DbConnect()
+            cursor = connection.cursor()
+            cursor.execute("SELECT Group_Id,Group_Name FROM Bot_Groups WHERE Active=1 AND Advertise_Group=0;")
+            recs = cursor.fetchall()
+            cursor.close()
+            connection.close()
+            advList = "Lists ("+str(len(recs))+")"
+            for rec in recs:
+                advList = advList+"\nId:"+str(rec[0])+";Name:"+rec[1]
+            chat_id = update.message.chat_id
+            context.bot.send_message(chat_id=chat_id, text=advList)
+
 def botAbout(update : Update, context : CallbackContext):
     if update.message.chat is not None and update.message.chat.type == 'private':
         aboutMessage = """
@@ -259,9 +274,15 @@ def botAdvHandler(update : Update, context : CallbackContext):
                     if update.message.chat.id == adv_group[0]: 
                         if isBotAdmin(cursor,update.message.from_user.id):
                             user_id         = update.message.from_user.id
-                            user_name       = update.message.from_user.username
-                            user_first_name = update.message.from_user.first_name
-                            user_last_name  = update.message.from_user.last_name
+                            user_name = ""
+                            if update.message.from_user.username is not None:
+                                user_name = update.message.from_user.username
+                            user_first_name = ""
+                            if update.message.from_user.first_name is not None:
+                                user_first_name = update.message.from_user.first_name
+                            user_last_name = ""
+                            if update.message.from_user.last_name is not None:
+                                user_last_name = update.message.from_user.last_name
                             user_full_name  = user_first_name+" "+user_last_name
                             if update.message.forward_sender_name is not None:
                                 user_id         = -1
@@ -328,7 +349,7 @@ def botAdvRun(context : CallbackContext,connection,cursor,cur_time,advertise_id,
         send_msg = False
     if send_msg:
         adv_remain = adv_remain - 1
-        adv_next_run = cur_time + timedelta(seconds=2*advertise_period) #timedelta(hours=advertise_period): #timedelta(seconds=1.5*advertise_period):
+        adv_next_run = cur_time + timedelta(hours=advertise_period) #timedelta(hours=advertise_period)  #timedelta(seconds=1.5*advertise_period)
         cursor.execute("INSERT INTO Advertise_Runs (Advertise_Id,Advertise_Remain,Advertise_NextRun,Group_Id,Group_Name) VALUES (%s,%s,%s,%s,%s);",[advertise_id,adv_remain,adv_next_run,group_id,group_name])
         if adv_remain<=0 and advertise_count!=0:
             context.bot.delete_message(chat_id=advertise_group_id,message_id=advertise_id)
@@ -359,7 +380,7 @@ def botAdvRuns(context : CallbackContext):
             adv_remain = adv[5]
             if adv_remain>0 or adv[3]==0:
                 dt = datetime.now()
-                if dt>=adv[6]+timedelta(seconds=2*adv[4]):  #timedelta(hours=adv[4]):   #timedelta(seconds=2*adv[4]):
+                if dt>=adv[6]:
                     if adv[1] is None:
                         cursor.execute("SELECT Group_Id,Group_Name FROM Bot_Groups WHERE Advertise_Group=0 AND Active=1;")
                         adv_groups = cursor.fetchall()
@@ -444,6 +465,7 @@ def main():
     dp.add_handler(CommandHandler('adv_list_not_active',botAdvNotActiveList))
     dp.add_handler(CommandHandler('adv_start',botAdvStart))
     dp.add_handler(CommandHandler('adv_stop',botAdvStop))
+    dp.add_handler(CommandHandler('bot_group_list',botGroupList))
     dp.add_handler(MessageHandler(Filters.regex('^/adv_show_status:[+-]?[0-9]+$'),botAdvShowStatus))
     dp.add_handler(MessageHandler(Filters.regex('^/adv_show:[+-]?[0-9]+$'),botAdvShow))
     dp.add_handler(MessageHandler(Filters.regex('^/adv_activate:[+-]?[0-9]+$'),botAdvActivate))
@@ -451,7 +473,9 @@ def main():
     #dp.add_handler(CommandHandler('bop',bop))
     dp.add_handler(MessageHandler(Filters.status_update.new_chat_members,memberOnJoin))
     dp.add_handler(MessageHandler(Filters.status_update.left_chat_member,memberOnLeft))
-    dp.add_handler(MessageHandler(Filters.all, botAdvHandler))
+    #dp.add_handler(MessageHandler(Filters.update,botAdvHandler))
+    dp.add_handler(MessageHandler(Filters.all,botAdvHandler))
+    print("Bot is now ready")
     updater.start_polling()
     updater.idle()
 
