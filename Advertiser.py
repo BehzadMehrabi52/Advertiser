@@ -280,7 +280,7 @@ def botAdvHandler(update : Update, context : CallbackContext):
                             cursor.close()
                             if adv_group is not None:
                                 if update.message.chat.id == adv_group[0]: 
-                                    if isBotAdmin(cursor,update.message.from_user.id):
+                                    if isBotAdmin(update.message.from_user.id):
                                         user_id         = update.message.from_user.id
                                         user_name = ""
                                         if update.message.from_user.username is not None:
@@ -310,13 +310,13 @@ def botAdvHandler(update : Update, context : CallbackContext):
                                             if update.message.forward_from.last_name is not None:
                                                 user_last_name = update.message.forward_from.last_name
                                             user_full_name  = user_first_name+" "+user_last_name
-                                            dt = datetime.now().astimezone(pytz.UTC)
-                                            cursor = connection.cursor()
-                                            cursor.execute("""
-                                                            INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,User_Id,User_Name,User_First_Name,User_Last_Name,User_Full_Name,Active)
-                                                                VALUES (%s,%s,1,24,%s,%s,%s,%s,%s,0);
-                                                            """,[update.message.message_id,dt,user_id,user_name,user_first_name,user_last_name,user_full_name])
-                                            connection.commit()
+                                        dt = datetime.now().astimezone(pytz.UTC)
+                                        cursor = connection.cursor()
+                                        cursor.execute("""
+                                                        INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,User_Id,User_Name,User_First_Name,User_Last_Name,User_Full_Name,Active)
+                                                            VALUES (%s,%s,1,24,%s,%s,%s,%s,%s,0);
+                                                        """,[update.message.message_id,dt,user_id,user_name,user_first_name,user_last_name,user_full_name])
+                                        connection.commit()
 
 def memberOnJoin(update : Update, context : CallbackContext):
     global connection

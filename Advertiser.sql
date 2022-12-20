@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 18, 2022 at 11:20 AM
+-- Generation Time: Dec 20, 2022 at 03:55 AM
 -- Server version: 10.4.27-MariaDB
 -- PHP Version: 8.1.12
 
@@ -32,7 +32,7 @@ CREATE TABLE `advertise` (
   `Advertise_Id` bigint(11) NOT NULL,
   `Start_Time` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `Advertise_Count` int(11) NOT NULL DEFAULT 0,
-  `Advertise_Period` int(11) NOT NULL DEFAULT 24,
+  `Advertise_Period` float NOT NULL DEFAULT 24,
   `User_Id` bigint(11) NOT NULL,
   `User_Name` text NOT NULL,
   `User_First_Name` text NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE `advertise` (
 --
 
 INSERT INTO `advertise` (`Id`, `Advertise_Id`, `Start_Time`, `Advertise_Count`, `Advertise_Period`, `User_Id`, `User_Name`, `User_First_Name`, `User_Last_Name`, `User_Full_Name`, `Active`) VALUES
-(1, 653, '2022-12-18 03:46:12', 0, 1, 2057086971, 'Modern_Istanbul', 'Modern', 'Istanbul', 'Modern Istanbul', 0);
+(1, 653, '2022-12-19 22:48:04', 0, 2, 2057086971, 'Modern_Istanbul', 'Modern', 'Istanbul', 'Modern Istanbul', 1);
 
 -- --------------------------------------------------------
 
@@ -96,8 +96,44 @@ CREATE TABLE `advertise_runs` (
   `Advertise_Remain` bigint(11) NOT NULL,
   `Advertise_NextRun` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `Group_Id` bigint(11) NOT NULL,
-  `Group_Name` int(11) NOT NULL
+  `Group_Name` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `advertise_runs`
+--
+
+INSERT INTO `advertise_runs` (`Id`, `Advertise_Id`, `Advertise_Remain`, `Advertise_NextRun`, `Group_Id`, `Group_Name`) VALUES
+(6, 653, -1, '2022-12-19 21:11:11', -1001702818002, '0'),
+(7, 653, -2, '2022-12-19 22:11:11', -1001702818002, '0'),
+(8, 653, -3, '2022-12-19 22:11:11', -882770672, '0'),
+(9, 653, -4, '2022-12-19 22:41:11', -1001702818002, '0'),
+(10, 653, -5, '2022-12-19 22:41:11', -1001436337105, '0'),
+(11, 653, -6, '2022-12-19 22:41:11', -882770672, '0'),
+(12, 653, -7, '2022-12-19 23:41:11', -1001702818002, '0'),
+(13, 653, -8, '2022-12-19 23:41:11', -1001436337105, '0'),
+(14, 653, -9, '2022-12-19 23:41:11', -882770672, '0'),
+(15, 653, -10, '2022-12-20 00:41:12', -1001702818002, '0'),
+(16, 653, -11, '2022-12-20 00:41:12', -1001436337105, '0'),
+(17, 653, -12, '2022-12-20 00:41:12', -882770672, '0'),
+(18, 653, -13, '2022-12-20 01:41:12', -1001702818002, '0'),
+(19, 653, -14, '2022-12-20 01:41:12', -1001436337105, '0'),
+(20, 653, -15, '2022-12-20 01:41:12', -882770672, '0'),
+(21, 653, -16, '2022-12-20 02:41:12', -1001702818002, '0'),
+(22, 653, -17, '2022-12-20 02:41:12', -1001436337105, '0'),
+(23, 653, -18, '2022-12-20 02:41:12', -882770672, '0'),
+(24, 653, -19, '2022-12-20 03:41:12', -1001702818002, 'تبلیغات Modern Istanbul'),
+(25, 653, -20, '2022-12-20 03:41:12', -1001436337105, ' همراهان استانبول❤️'),
+(26, 653, -21, '2022-12-20 04:41:12', -1001702818002, 'تبلیغات Modern Istanbul'),
+(27, 653, -22, '2022-12-20 04:41:12', -1001436337105, ' همراهان استانبول❤️'),
+(28, 653, -23, '2022-12-20 05:41:12', -1001702818002, 'تبلیغات Modern Istanbul'),
+(29, 653, -24, '2022-12-20 05:41:12', -1001436337105, ' همراهان استانبول❤️'),
+(30, 653, -25, '2022-12-20 06:41:12', -1001702818002, 'تبلیغات Modern Istanbul'),
+(31, 653, -26, '2022-12-20 06:41:12', -1001436337105, ' همراهان استانبول❤️'),
+(32, 653, -27, '2022-12-20 08:41:12', -1001702818002, 'تبلیغات Modern Istanbul'),
+(33, 653, -28, '2022-12-20 08:41:12', -1001436337105, ' همراهان استانبول❤️'),
+(34, 653, -29, '2022-12-20 10:41:12', -1001702818002, 'تبلیغات Modern Istanbul'),
+(35, 653, -30, '2022-12-20 10:41:12', -1001436337105, ' همراهان استانبول❤️');
 
 -- --------------------------------------------------------
 
@@ -146,7 +182,8 @@ INSERT INTO `bot_groups` (`Id`, `Group_Id`, `Group_Name`, `Advertise_Group`, `Ac
 (26, -1001317920282, ' 🇨🇦 Welcome to Canada 🇨🇦', 0, 0),
 (27, -1001205559938, ' 👑 KING TRADE 👑', 0, 0),
 (28, -1001288654911, ' گروه مشاورین املاک کوروش بزرگ در استانبول', 0, 0),
-(29, -1001333338348, ' مسکن ارگ بریانک', 0, 0);
+(29, -1001333338348, ' مسکن ارگ بریانک', 0, 0),
+(30, -882770672, 'Adv_1', 0, 1);
 
 --
 -- Indexes for dumped tables
@@ -208,13 +245,13 @@ ALTER TABLE `advertise_group`
 -- AUTO_INCREMENT for table `advertise_runs`
 --
 ALTER TABLE `advertise_runs`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `bot_groups`
 --
 ALTER TABLE `bot_groups`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
