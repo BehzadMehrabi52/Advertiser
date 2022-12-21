@@ -356,14 +356,18 @@ def botAdvRun(context : CallbackContext,cur_time,advertise_id,advertise_count,ad
     global connection
     adv_remain = advertise_remain
     send_msg = False
+    print("1")
     try:
         context.bot.forward_message(group_id,advertise_group_id,advertise_id)
+        print("2")
         send_msg = True
     except Error as e:
+        print("3")
         print(group_id)
         print(e)
         send_msg = False
     if send_msg:
+        print("4")
         adv_remain = adv_remain - 1
         adv_next_run = cur_time + timedelta(hours=advertise_period) #timedelta(hours=advertise_period)  #timedelta(seconds=1.5*advertise_period)
         cursor = connection.cursor()
