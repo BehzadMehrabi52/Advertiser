@@ -30,7 +30,7 @@ def DbConnect():
 
 def isBotAdmin(user_id):
     cursor = connection.cursor()
-    cursor.execute("SELECT * FROM Advertiser_Admins WHERE User_Id=%s AND Active=1;",[user_id])
+    cursor.execute("SELECT * FROM Advertiser_Users WHERE User_Id=%s AND Admin=1 AND Active=1;",[user_id])
     adm = cursor.fetchone()
     cursor.close()
     if adm is not None:
@@ -280,7 +280,7 @@ def botAdvHandler(update : Update, context : CallbackContext):
                             cursor.close()
                             if adv_group is not None:
                                 if update.message.chat.id == adv_group[0]: 
-                                    if isBotAdmin(cursor,update.message.from_user.id):
+                                    if isBotAdmin(update.message.from_user.id):
                                         user_id         = update.message.from_user.id
                                         user_name = ""
                                         if update.message.from_user.username is not None:
@@ -310,13 +310,13 @@ def botAdvHandler(update : Update, context : CallbackContext):
                                             if update.message.forward_from.last_name is not None:
                                                 user_last_name = update.message.forward_from.last_name
                                             user_full_name  = user_first_name+" "+user_last_name
-                                            dt = datetime.now().astimezone(pytz.UTC)
-                                            cursor = connection.cursor()
-                                            cursor.execute("""
-                                                            INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,User_Id,User_Name,User_First_Name,User_Last_Name,User_Full_Name,Active)
-                                                                VALUES (%s,%s,1,24,%s,%s,%s,%s,%s,0);
-                                                            """,[update.message.message_id,dt,user_id,user_name,user_first_name,user_last_name,user_full_name])
-                                            connection.commit()
+                                        dt = datetime.now().astimezone(pytz.UTC)
+                                        cursor = connection.cursor()
+                                        cursor.execute("""
+                                                        INSERT INTO Advertise (Advertise_Id,Start_Time,Advertise_Count,Advertise_Period,User_Id,User_Name,User_First_Name,User_Last_Name,User_Full_Name,Active)
+                                                            VALUES (%s,%s,1,24,%s,%s,%s,%s,%s,0);
+                                                        """,[update.message.message_id,dt,user_id,user_name,user_first_name,user_last_name,user_full_name])
+                                        connection.commit()
 
 def memberOnJoin(update : Update, context : CallbackContext):
     global connection
@@ -356,12 +356,18 @@ def botAdvRun(context : CallbackContext,cur_time,advertise_id,advertise_count,ad
     global connection
     adv_remain = advertise_remain
     send_msg = False
+    print("1")
     try:
         context.bot.forward_message(group_id,advertise_group_id,advertise_id)
+        print("2")
         send_msg = True
-    except:
+    except Error as e:
+        print(group_id)
+        print(e)
         send_msg = False
+    print("3")
     if send_msg:
+        print("4")
         adv_remain = adv_remain - 1
         adv_next_run = cur_time + timedelta(hours=advertise_period) #timedelta(hours=advertise_period)  #timedelta(seconds=1.5*advertise_period)
         cursor = connection.cursor()
@@ -431,10 +437,12 @@ def botAdvStart(update : Update, context : CallbackContext):
                             timer = botAdvTimer(0.5,botAdvRuns,[context])
                             timer.start()
                             tx = "Adviser is ON now"
+                            print(tx)
                             context.bot.send_message(chat_id=chat_id, text=tx)
                             botAdvRuns(context)
                         else:
                             tx = "Adviser is ON not OFF"
+                            print(tx)
                             context.bot.send_message(chat_id=chat_id, text=tx)
 
 def botAdvStop(update : Update, context : CallbackContext):
@@ -450,6 +458,7 @@ def botAdvStop(update : Update, context : CallbackContext):
                             tx = "Adviser is OFF now"
                         else:
                             tx = "Adviser is not ON"
+                        print(tx)
                         chat_id = update.message.chat_id
                         context.bot.send_message(chat_id=chat_id, text=tx)
 
