@@ -1,5 +1,6 @@
 from telegram.ext import Updater, InlineQueryHandler, CommandHandler, MessageHandler, Filters, CallbackContext, ChatMemberHandler,RegexHandler
 from telegram import Bot,Update, Chat, ChatMember, ParseMode, ChatMemberUpdated
+from telethon.sync import TelegramClient
 from cryptography.hazmat.primitives import serialization
 import configparser
 import rsa
@@ -15,7 +16,8 @@ def DbConnect():
     try:
         connection = mysql.connector.connect(host='localhost',
                                              db='advertiser',
-                                             user='Advertiser'
+                                             user='Advertiser',
+                                             autocommit=True
                                             )
         if not connection.is_connected():
             print("Could not connected to MySQL")
@@ -28,7 +30,36 @@ def DbConnect():
             timer.cancel()
         os._exit(1)
 
+def UserAPIConnect(user_phone,user_api_id,user_api_hash):
+    client = None
+    try:
+        client = TelegramClient(user_phone, user_api_id, user_api_hash)
+        client.connect()
+        if not client.is_user_authorized():
+            client.send_code_request(user_phone)
+            client.sign_in(user_phone, input("Enter the code: "))
+    except:
+        if client is not None:
+            client.disconnect()
+        client = None
+    return client
+
+def CheckUsersAPI():
+    global connection
+    cursor = connection.cursor()
+    cursor.execute("SELECT User_Phone,API_id,API_Hash FROM Advertiser_Users WHERE Active=1;")
+    usrs = cursor.fetchall()
+    for usr in usrs:
+        print("Checking client dedicated by phone: "+usr[2])
+        client = UserAPIConnect(usr[0],usr[1],usr[2])
+        if client is not None:
+            print("OK")
+            client.disconnect()
+        else:
+            print("Error connect to client dedicated with phone: "+user_phone)
+
 def isBotAdmin(user_id):
+    global connection
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM Advertiser_Users WHERE User_Id=%s AND Admin=1 AND Active=1;",[user_id])
     adm = cursor.fetchone()
@@ -351,23 +382,35 @@ def memberOnLeft(update : Update, context : CallbackContext):
                             cursor.execute("UPDATE Bot_Groups SET Active=0 WHERE Group_Id = %s;",[update.message.chat.id])
                             connection.commit()
                             cursor.close()
+"""
+def botSendByUser(user_phone,user_api_id,user_api_hash,group_id,advertise_group_id,advertise_id):
+    client = UserAPIConnect(usr[0],usr[1],usr[2])
+    if client is not None:
+        client.send_message(group_id,advertise_id,advertise_group_id)
+        client.disconnect()
+    return False
 
+def botSendByUsers(group_id,advertise_group_id,advertise_id):
+    send_msg = False
+    cursor = connection.cursor()
+    cursor.execute("SELECT User_Phone,API_Id,API_Hash FROM Advertiser_Users WHERE Active=1;")
+    usrs = cursor.fetchall()
+    for usr in usrs:
+        send_msg = botSendByUser(usr[0],usr[1],usr[2],group_id,advertise_group_id,advertise_id)
+        if send_msg:
+            break
+    return send_msg
+"""
 def botAdvRun(context : CallbackContext,cur_time,advertise_id,advertise_count,advertise_remain,advertise_period,group_id,group_name,advertise_group_id):
     global connection
     adv_remain = advertise_remain
     send_msg = False
-    print("1")
     try:
         context.bot.forward_message(group_id,advertise_group_id,advertise_id)
-        print("2")
         send_msg = True
-    except Error as e:
-        print("3")
-        print(group_id)
-        print(e)
-        send_msg = False
+    except:
+        send_msg = False #botSendByUsers(group_id,advertise_group_id,advertise_id)
     if send_msg:
-        print("4")
         adv_remain = adv_remain - 1
         adv_next_run = cur_time + timedelta(hours=advertise_period) #timedelta(hours=advertise_period)  #timedelta(seconds=1.5*advertise_period)
         cursor = connection.cursor()
@@ -464,7 +507,6 @@ def botAdvStop(update : Update, context : CallbackContext):
 
 def main():
     global timer
-    DbConnect()
     timer = None
     cpass = configparser.RawConfigParser()
     cpass.read('config.data')
@@ -473,6 +515,8 @@ def main():
         if timer is not None:
             timer.cancel()
         os._exit(1)
+    DbConnect()
+    #CheckUsersAPI()
 
     """
     db_Info = connection.get_server_info()
