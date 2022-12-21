@@ -362,10 +362,10 @@ def botAdvRun(context : CallbackContext,cur_time,advertise_id,advertise_count,ad
         print("2")
         send_msg = True
     except Error as e:
+        print("3")
         print(group_id)
         print(e)
         send_msg = False
-    print("3")
     if send_msg:
         print("4")
         adv_remain = adv_remain - 1
