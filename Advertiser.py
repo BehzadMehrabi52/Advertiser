@@ -30,7 +30,7 @@ def DbConnect():
 
 def isBotAdmin(user_id):
     cursor = connection.cursor()
-    cursor.execute("SELECT * FROM Advertiser_Admins WHERE User_Id=%s AND Active=1;",[user_id])
+    cursor.execute("SELECT * FROM Advertiser_Users WHERE User_Id=%s AND Admin=1 AND Active=1;",[user_id])
     adm = cursor.fetchone()
     cursor.close()
     if adm is not None:
@@ -359,7 +359,9 @@ def botAdvRun(context : CallbackContext,cur_time,advertise_id,advertise_count,ad
     try:
         context.bot.forward_message(group_id,advertise_group_id,advertise_id)
         send_msg = True
-    except:
+    except Error as e:
+        print(group_id)
+        print(e)
         send_msg = False
     if send_msg:
         adv_remain = adv_remain - 1
@@ -431,10 +433,12 @@ def botAdvStart(update : Update, context : CallbackContext):
                             timer = botAdvTimer(0.5,botAdvRuns,[context])
                             timer.start()
                             tx = "Adviser is ON now"
+                            print(tx)
                             context.bot.send_message(chat_id=chat_id, text=tx)
                             botAdvRuns(context)
                         else:
                             tx = "Adviser is ON not OFF"
+                            print(tx)
                             context.bot.send_message(chat_id=chat_id, text=tx)
 
 def botAdvStop(update : Update, context : CallbackContext):
@@ -450,6 +454,7 @@ def botAdvStop(update : Update, context : CallbackContext):
                             tx = "Adviser is OFF now"
                         else:
                             tx = "Adviser is not ON"
+                        print(tx)
                         chat_id = update.message.chat_id
                         context.bot.send_message(chat_id=chat_id, text=tx)
 
