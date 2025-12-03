@@ -53,7 +53,26 @@ Bot configuration is stored inside a file named **`config.data`**:
 
 ```bash
 pip install
-
+```
 
 Run the bot:
+```
 python bot.py
+```
+
+🎯 Purpose of This Project
+	•	Demonstrates Telegram bot automation
+	•	Simple advertising/broadcasting mechanism
+	•	Clean separation between configuration and bot logic
+	•	Extensible design for future paid advertising system
+
+A practical portfolio project showing Python automation skills.
+
+⸻
+
+✨ Author
+
+Behzad Mehrabi
+Software Developer — Python • Automation • Bots • .NET • JavaScript
+
+
